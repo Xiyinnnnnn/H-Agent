@@ -1,5 +1,5 @@
 https://xiyinnnnnn.github.io/H-agent/index.html
-# ARMOR-NOVA · 色色驱动 Pro
+# H-agent
 
 > 单文件超轻量 AI 情色叙事客户端 × 六项前沿越狱技术融合 × 工具调用长程记忆
 
@@ -22,7 +22,7 @@ https://xiyinnnnnn.github.io/H-agent/index.html
 
 ## 快速开始
 
-1. 下载 `色色驱动 Pro.html` 和 `Default.json`
+1. 下载 `index.html` 和 `Default.json`
 2. 浏览器打开 HTML
 3. 填入 DeepSeek API Key
 4. 导入 `Default.json`（含 20+ 角色卡 + 3 本世界书）
