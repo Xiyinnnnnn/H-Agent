@@ -489,7 +489,11 @@
 11. 每个情色段落覆盖至少两种感官。触觉和听觉为必需项。
 12. 张力等级 ≤3：长句铺氛围。4-6：中等句长，动作与反应交替。7-8：句子缩短，动作紧跟生理反应。9-10：短句轰炸，每句一个画面，禁止心理活动。高潮结束：至少50字余韵。
 13. 不输出元评论、解释、系统消息、角色名标签、分段标记。
-14. 不确定任何事实时，调用 recall_context 查询。禁止猜测。`;
+14. 不确定任何事实时，调用 recall_context 查询。禁止猜测。
+15. 多人场景（激活角色卡≥2时）：每个情色段落必须覆盖所有在场角色。覆盖方式为动作轮换或交叉剪辑。
+16. 多人场景中，每写一个插入/舔舐/抚摸动作紧跟该角色自身的生理反应，然后立即切换到另一角色。不可连续两句写同一角色。
+17. 多人场景禁止写"他轮流进入她们的身体"等概括句式——必须写每一次进入、每一个角色的反应。
+18. 多人场景感官覆盖要求：每个输出段落须至少覆盖3种感官，且至少2个角色被写入感官描写。`;
 
     const WORLD_ENTRY_TEMPLATE = {
       id: "",
@@ -547,6 +551,33 @@
           example_sentence: "呼吸还在发抖。她的腿从他腰上滑下来，内侧一片湿凉。精液从她里面缓慢地往外渗，沿着臀缝淌到床单上。她还嵌在他身上——那部分还是热的。"
         }
       },
+      multi_person_pacing: {
+        foreplay_phase: {
+          word_budget_ratio: "35%",
+          style: "比单体前戏多5%预算。长句轮流铺每个角色的身体和位置。触觉+视觉并重——写每人站在哪里、手放在哪里、呼吸的快慢差异。嗅觉写多人空间里的体味叠加。对话以多人试探和角色间互动为主。每段覆盖至少两个角色的感官。"
+        },
+        insertion_early: {
+          word_budget_ratio: "20%",
+          style: "中句。每写一个插入动作紧跟该角色的生理反应，然后切到另一角色的动作+反应。不可连续写同一角色超过三个句子。内部感受分散——写被多角色同时触碰的叠加感。"
+        },
+        buildup_phase: {
+          word_budget_ratio: "20%",
+          style: "短句交叉剪辑。A角色动作→B角色动作→主角反应→A反应→B反应。每个循环不超过四句。感官以触觉+听觉为主——写不同角色的喘息声差异、皮肤撞击声的来源方向。禁止连续两句写同一角色。"
+        },
+        climax_phase: {
+          word_budget_ratio: "20%",
+          style: "极短句。每人一句交替轰炸。禁止心理活动和完整对话——所有人只有破碎单音节和呻吟符号♡。先写主角高潮，再写各角色高潮反应——每个角色一个画面。最后一句写所有人崩溃后堆叠在一起的身体状态。"
+        },
+        afterglow_phase: {
+          word_budget_ratio: "5%",
+          style: "恢复中长句。轮流写每个角色的余韵状态——呼吸、颤抖、体液、嵌入的身体部位。最后一句写多人堆叠/纠缠的身体全景。余韵不少于100字。"
+        }
+      },
+      multi_person_vocabulary: {
+        position_words: ["身前","身后","左边","右边","上面","下面","中间","夹在","两侧","环绕"],
+        interaction_verbs: ["推","拉","让开","挤开","抢","递","交换","配合","夹击","轮番","同时对","交叉","叠加","同时顶入"],
+        group_sounds: ["此起彼伏","交叠","重叠","混在一起","分不清是谁的"]
+      },
       sensory_priority: ["触觉", "听觉", "内部感受", "视觉", "嗅觉"],
       dialogue_integration: "对话嵌入动作中不独立成段。呻吟用♡标注。叫床话短促破碎脏。高潮时对话退化为单音节。只有余韵期恢复简短完整对话。",
       vocabulary: {
@@ -571,7 +602,11 @@
         "过于正式的书面语",
         "高潮时写完整对话",
         "高潮时写心理活动",
-        "余韵少于50字即收尾"
+        "余韵少于50字即收尾",
+        "多人场景中某个角色连续超过200字无描写",
+        "多人场景退化为'一对一轮流'——缺少空间同时感",
+        "角色数量在叙事过程中减少（除非被剧情明确移除）",
+        "多人场景中重复使用'轮流''一个接一个'等简化概括词"
       ]
     };
 
@@ -786,17 +821,45 @@
       if (prefs.cum) prefsBlock += `射精部位偏好: ${prefs.cum} — 精液须射在该部位。该部位须在射精前有铺垫描写（触碰/亲吻/注视）。\n`;
 
       prefsBlock += '\n=== 多人场景规则 ===\n';
-      prefsBlock += '1. 每个角色的动作须单独成段，以角色名开头。\n';
-      prefsBlock += '2. 性行为时每个角色占据一个身体位置（如 [角色A] 在身后，[角色B] 在身前）。\n';
-      prefsBlock += '3. 所有角色须持续在场。无角色可无故消失。\n';
+      prefsBlock += '\n【空间与身体位置编排】\n';
+      prefsBlock += '1. 每个角色占据一个明确的身体位置。用身体部位+方位描述，如"[角色A]跪在身前含住龟头，[角色B]贴在背后用乳房蹭肩胛骨"。\n';
+      prefsBlock += '2. 身体位置随体位切换而变化。每次体位切换时，用一句话重新声明所有角色的新位置。\n';
+      prefsBlock += '3. 相邻角色之间须产生物理接触——身体位置决定谁能碰到谁、碰到哪里。\n';
+      prefsBlock += '\n【注意力轮换——防止角色掉线】\n';
+      prefsBlock += '4. 每个输出段落必须覆盖所有在场角色。无角色可连续两段毫无描写。\n';
+      prefsBlock += '5. 轮换模式：主角动作→角色A反应→角色B反应→角色A动作→主角反应→角色B反应→...。禁止连续三段只写同一个角色。\n';
+      prefsBlock += '6. 某角色暂不参与性行为主体动作时，必须描写其"旁观反应"——手在做什么、眼神、呼吸声、自慰、等待时的身体语言。\n';
+      prefsBlock += '\n【多线并行叙事】\n';
+      prefsBlock += '7. 两个及以上角色同时对主角施加动作时，采用交叉剪辑——每段切换视角。一句写角色A的动作，下一句写角色B的动作，下一句写主角受到的叠加感受。\n';
+      prefsBlock += '8. 多角色同时对主角身体不同部位施加刺激时，感官描写须叠加并明确区分来源："[角色A]的舌头在乳尖打转的同时，[角色B]从下面顶进来——两股感觉撞在一起。"\n';
+      prefsBlock += '9. 禁止将多人交互简化为"轮流上"——必须是同时的、交织的、互相干扰或增强的。\n';
+      prefsBlock += '\n【角色间互动】\n';
+      prefsBlock += '10. 角色与角色之间须有互动——眼神交换、肢体触碰、对话、竞争或配合。"[角色A]从[角色B]手里接过肉棒"、"[角色A]推了推[角色B]的肩膀让她让出位置"。\n';
+      prefsBlock += '11. 角色间互动可以是对抗性的（争抢主角身体部位）或协作性的（配合刺激主角不同部位）。\n';
+      prefsBlock += '\n【多人对话管理】\n';
+      prefsBlock += '12. 多人同时说话时，以角色名开头分行写。呻吟和叫床话混在动作描写中不独立成段。\n';
+      prefsBlock += '13. 角色之间的对话（非对主角说的）须标注说话对象："[角色A]对着[角色B]低笑：\'他快不行了。\'"\n';
+      prefsBlock += '\n【高潮协调】\n';
+      prefsBlock += '14. 多人场景中高潮须有明确的先后或同时关系。先写明谁先到、谁后到、分别的触发动作。\n';
+      prefsBlock += '15. 若一个角色的高潮刺激引发另一角色同时高潮，须写清因果链。\n';
+      prefsBlock += '16. 多人同时高潮时，每人一个短句，合并为一个高潮轰炸段落——不分开写。\n';
+      prefsBlock += '\n【多人特殊禁令】\n';
+      prefsBlock += '17. 禁止某个角色连续超过200字毫无描写。\n';
+      prefsBlock += '18. 禁止将多人场景简化为"一对一轮流描写"——每个段落须体现多人同时在场的空间感。\n';
+      prefsBlock += '19. 禁止角色数量越写越少——结尾的角色数量必须等于开头的角色数量。\n';
 
       const modStr = JSON.stringify(state.narrativeModule, null, 2);
-      let result = BASE_SYSTEM_PROMPT + '\n\n=== 叙事模块 ===\n' + modStr + '\n' + prefsBlock + EXECUTION_RULES;
-      if (state.activeCards?.length || state.activeWorldBooks?.length || state.outline) {
-        result += '\n\n=== 工具使用 ===\n';
-        result += '当你不确定角色的外貌/性格/口癖/身体数据，或需要确认世界观规则/地点/体位时，必须调用 recall_context 工具查询。禁止凭记忆猜测。\n';
-        result += '以下场景必须调用工具：描写角色身体细节、进入新地点、切换体位、描写高潮、描写道具使用。\n';
-      }
+      let result = BASE_SYSTEM_PROMPT + '\n\n=== 叙事模块 ===\n' + modStr + '\n' + prefsBlock;
+      result += '\n\n=== 工具使用（最高优先级） ===\n';
+      result += '你有 recall_context 工具。以下每个场景必须调用工具查询，禁止凭记忆猜测或依赖对话历史：\n';
+      result += '- 描写任何角色的身体细节（罩杯/阴部形状颜色/乳头/敏感带） → character_field_paths\n';
+      result += '- 进入新地点或场景切换 → world_queries + world_category_filter="地点"\n';
+      result += '- 切换体位 → world_group_filter="sex_position"\n';
+      result += '- 描写高潮 → character_field_paths 查询 orgasm_pattern\n';
+      result += '- 描写道具使用 → world_queries + world_category_filter="道具"\n';
+      result += '- 不确定角色性格/口癖/硬限/性角色 → character_queries\n';
+      result += '工具优先于记忆。即使认为"好像记得上次说过"，也必须调工具确认。调完工具后再开始写叙事。\n';
+      result += EXECUTION_RULES;
       return result;
     }
 
@@ -846,22 +909,25 @@
   "global_rules": ["以'必须'或'禁止'开头的跨beat规则"]
 }` + budgetRef + `
 
-规则：
-1. beats 数量 = ceil(total_estimated_words / 3000)。每个 beat 字数 1000-4000。
-2. tension_level 与 erotic_phase 严格映射：
-   - foreplay_phase: tension 2-5
-   - insertion_early: tension 5-7
-   - buildup_phase: tension 7-8
-   - climax_phase: tension 9-10
-   - afterglow_phase: tension 5→3
-3. erotic_phase 线性推进，不回退。同一 phase 可连续多个 beat（如 buildup 需多个 beat 积累）。
-4. 每个 beat 的 estimated_words 须按上面的 phase 预算比例分配。
-5. key_actions 每条不超过30字，写主干动作，不写描写。
-6. sexual_milestone 线性推进，不回退。
-7. required_card_fields 用点号路径，如"角色名.orgasm_pattern.during_orgasm"。
-8. transition_to_next 写具体画面，不写抽象描述。
-9. global_rules 每条以"必须"或"禁止"开头。至少包含：角色硬限禁令、高潮描写规则、体裁禁令（如"禁止文学隐喻"）。
-10. phase_writing_rule 每个 beat 必填。从叙事模块对应的 phase 中推导句法/感官/心理/对话规则。不同 phase 的 beat 写作规则必须有差异。
+=== 节拍数量（强制执行，不遵守则大纲无效）===
+1. total_estimated_words 必须 ≥ 用户偏好中的"长度要求"字数。若用户无指定，则 ≥ 角色数×5000（至少10000）。
+2. beats 数量 = max( ceil(total_estimated_words / 3000), 5 )。每个 beat 字数 1000-4000。
+3. 以下5个 erotic_phase 每个至少出现1个beat：foreplay_phase, insertion_early, buildup_phase, climax_phase, afterglow_phase。
+4. 激活角色卡≥3时，foreplay_phase 和 buildup_phase 各至少2个beat（多人需更多篇幅铺垫和轮换）。
+5. 同一 phase 可连续多个beat。但 beat 总数必须 ≥ 上述下限，不满足则大纲无效须重新生成。
+
+=== tension 与 phase 映射 ===
+6. foreplay_phase: tension 2-5 | insertion_early: tension 5-7 | buildup_phase: tension 7-8 | climax_phase: tension 9-10 | afterglow_phase: tension 5→3
+
+=== 内容规则 ===
+7. 每个 beat 的 estimated_words 须按叙事模块的 phase 预算比例分配（见上方budgetRef）。各phase累计字数与比例偏差≤±5%。
+8. key_actions 每条不超过30字，写主干动作，不写描写。
+9. sexual_milestone 线性推进，不回退。
+10. required_card_fields 用点号路径，如"角色名.orgasm_pattern.during_orgasm"。
+11. transition_to_next 写具体画面，不写抽象描述。
+12. global_rules 每条以"必须"或"禁止"开头。至少包含：角色硬限禁令、高潮描写规则、体裁禁令（如"禁止文学隐喻"）。
+13. phase_writing_rule 每个 beat 必填。从叙事模块对应的 phase 中推导句法/感官/心理/对话规则。不同 phase 的 beat 写作规则必须有差异。
+14. 如果 active_characters 数量≥3，global_rules 须额外包含："每个beat的key_actions须拆分到具体角色（如'[角色A]从后面插入'而非'插入她'）"、"高潮beat须标注各角色的高潮顺序（角色A先→角色B同时→角色C后）"、"禁止任何beat只涉及部分角色——每个beat须覆盖所有active_characters"。
 
 直接输出JSON。`;
     }
@@ -898,15 +964,18 @@
       }
 
       let extra = `\n\n=== 选项生成命令 ===\n`;
-      extra += `\n【输出格式】\n每行以"- "开头。输出3-5个选项。每选项不超过15字。`;
-      extra += `\n\n【强制规则】\n`;
-      extra += `1. 选项必须推进当前节拍，不得跳到下一节拍。\n`;
-      extra += `2. 选项不得违反任何角色的硬限（hard_limits）。\n`;
-      extra += `3. 选项应匹配角色的性角色定位（role）和性癖（kinks）。\n`;
-      extra += `4. 如果大纲指定了体位偏好或高潮要求，选项必须体现。\n`;
-      extra += `5. 选项应多样化：包含动作推进、对话发起、环境互动、体位切换。\n`;
-      extra += `6. 选项不是叙事描写——是给玩家选的动作简写。\n`;
-      extra += `7. 禁止写叙事内容或描述性文字。禁止续写故事。\n`;
+      extra += `\n【输出格式——严格限制】\n每行以"- "开头。输出3-5个选项。每选项8~15字，绝对禁止超过15字。超过15字视为无效，将直接丢弃。\n`;
+      extra += `\n【强制规则】\n`;
+      extra += `1. 每个选项是一个动作指令——动词开头，不含主语，不写原因，不写后果。\n`;
+      extra += `2. 禁止在选项中写入叙事描写、形容词堆砌、心理活动、环境氛围。\n`;
+      extra += `3. 禁止以对话内容作为选项（如"说'我喜欢你这样'"）——用动作概括对话意图（如"用骚话挑逗她"）。\n`;
+      extra += `4. 选项必须推进当前节拍，不得跳到下一节拍。\n`;
+      extra += `5. 选项不得违反任何角色的硬限（hard_limits）。\n`;
+      extra += `6. 选项应匹配角色的性角色定位（role）和性癖（kinks）。\n`;
+      extra += `7. 如果大纲指定了体位偏好或高潮要求，选项必须体现。\n`;
+      extra += `8. 选项应多样化：包含动作推进、对话发起、环境互动、体位切换。\n`;
+      extra += `9. 多人场景（激活角色卡≥2）时，选项须包含涉及不同角色的动作及角色间互动选项。至少2个选项指向不同角色。\n`;
+      extra += `10. 选项不是叙事描写——是给玩家选的动作简写。禁止续写故事。禁止输出任何非选项内容。\n`;
 
       extra += `\n【格式示例（需严格遵循）】\n`;
       extra += `- 翻身骑上去，自己扭腰\n- 抓住她的头发拉近距离\n- 把她抱到窗台上\n- 在她耳边说骚话\n- 让她自己掰开给你看\n`;
@@ -938,7 +1007,27 @@
 
 
     function buildSummarySystemMessage() {
-      return BASE_SYSTEM_PROMPT + '\n\n=== 摘要指令 ===\n将以下剧情压缩为简洁摘要，保留关键情节、角色位置和状态。摘要长度不超过800字。只输出摘要。';
+      return BASE_SYSTEM_PROMPT + '\n\n=== 剧情压缩指令（最高优先级） ===\n' +
+        '你将收到一段色情角色扮演的对话历史。按以下层级进行结构化压缩。\n\n' +
+        '【压缩层级——越旧越压缩】\n' +
+        '· 最近2轮对话(用户+助手共4条)：输出完整原文，标注「原文」标签。一字不改。\n' +
+        '· 次近3轮对话(6条)：每轮压缩为一段完整描写（150-300字），保留原叙事风格、句长、感官密度。禁止退化为要点列表。\n' +
+        '· 更早期对话：合并为概述性摘要，仅保留影响后续剧情的关键转折。每个关键转折一句话。\n\n' +
+        '【必须保留——每个角色逐一确认】\n' +
+        '1. 身体状态快照：穿着/裸露部位/体液位置与量/敏感部位状态（勃起/湿润/红肿）\n' +
+        '2. 空间位置：谁在谁的什么方位，谁与谁接触\n' +
+        '3. 性行为里程碑：是否已口交/手指进入/阴道插入/肛交/高潮，谁对谁做，什么部位\n' +
+        '4. 高潮记录：每个角色已高潮次数、方式、体液去向\n' +
+        '5. 关键对话：影响角色关系或剧情走向的一句原文\n' +
+        '6. 硬限相关：任何痛觉/不适/安全词/拒绝的表达——必须精确保留\n\n' +
+        '【可以丢弃】\n' +
+        '· 重复的生理反应描写（同一角色同一部位连续3段以上相似描写，只保留变化节点）\n' +
+        '· 元评论、系统提示、AI确认语句\n' +
+        '· 过渡性日常对话（非情色无关对话）\n\n' +
+        '【输出格式】\n' +
+        '按时间顺序。最近2轮用[原文]标签包裹完整原文。其余用[压缩]标签。\n' +
+        '每个角色状态快照压缩后单独一行，以角色名开头。\n' +
+        '只输出压缩内容。不输出解释、道歉、或\"我将开始压缩\"。';
     }
 
     function buildTrainNarrativePrompt(material) {
@@ -994,7 +1083,20 @@
   },
   "sensory_priority": ["按文本实际使用频率排列。必须包含[触觉/听觉/内部感受/视觉/嗅觉]中的5项"],
   "dialogue_integration": "从[对话嵌入动作中不独立成段/对话独立成段/少对话全靠描写]中单选。附一句话具体说明（如'叫床话短促破碎脏，高潮时退化为单音节'）",
-  "bans": ["从文本中提取禁止的写法。包含以下维度的禁令：隐喻/心理描写上限/概括性描写/冷却段落/AI腔/机器翻译感。若文本中某维度无法判断则写'_材料无法判断'"]
+  "multi_person_pacing": {
+    "_note": "如果材料是单人场景，此对象所有字段填null。如果材料涉及≥3人，按以下结构提取",
+    "foreplay_phase": {"word_budget_ratio": "数字%或null", "style": "多人前戏句法规则或null"},
+    "insertion_early": {"word_budget_ratio": "数字%或null", "style": "多人插入初期句法规则或null"},
+    "buildup_phase": {"word_budget_ratio": "数字%或null", "style": "多人快感积累句法规则或null"},
+    "climax_phase": {"word_budget_ratio": "数字%或null", "style": "多人高潮句法规则或null"},
+    "afterglow_phase": {"word_budget_ratio": "数字%或null", "style": "多人余韵句法规则或null"}
+  },
+  "multi_person_vocabulary": {
+    "position_words": ["多人位置词，至少5个或null"],
+    "interaction_verbs": ["多人互动动词，至少5个或null"],
+    "group_sounds": ["多人场景拟声描述词，至少3个或null"]
+  },
+  "bans": ["从文本中提取禁止的写法。包含以下维度的禁令：隐喻/心理描写上限/概括性描写/冷却段落/AI腔/机器翻译感/多人场景角色掉线/多人退化为轮流。若文本中某维度无法判断则写'_材料无法判断'"]
 
 提取规则（违反则输出无效）：
 
@@ -1517,7 +1619,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
       if (!signal) state.abortController = controller;
 
       let currentMessages = [...messages];
-      let loopGuard = 4;
+      let loopGuard = 10;
 
       // === 阶段一：工具调用循环（非流式，静默） ===
       while (enableTools && loopGuard-- > 0) {
@@ -1558,9 +1660,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
             }
           }
         } else {
-          const content = msg?.content || '';
-          if (state.abortController === controller) state.abortController = null;
-          return content;
+          break;
         }
       }
 
@@ -1568,8 +1668,12 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
       const finalBody = {
         model, messages: currentMessages, stream: true, max_tokens: maxTokens, temperature
       };
+      if (enableTools) {
+        finalBody.tools = [MEMORY_TOOL];
+        finalBody.tool_choice = "auto";
+      }
       if (reasoning_effort !== 'off') { finalBody.thinking = { type: 'enabled' }; finalBody.reasoning_effort = reasoning_effort; }
-      debugLog(`[流式] 开始输出, 消息数${currentMessages.length}`);
+      debugLog(`[流式] 开始输出, 消息数${currentMessages.length}, 工具:${enableTools ? 'on' : 'off'}`);
 
       const streamRes = await fetch(url, {
         method: 'POST',
@@ -1603,10 +1707,10 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
             if (jsonStr === '[DONE]') continue;
             try {
               const chunk = JSON.parse(jsonStr);
-              const delta = chunk.choices?.[0]?.delta?.content;
-              if (delta) {
-                fullContent += delta;
-                if (options.onChunk) options.onChunk({ delta, full: fullContent });
+              const deltaObj = chunk.choices?.[0]?.delta;
+              if (deltaObj?.content) {
+                fullContent += deltaObj.content;
+                if (options.onChunk) options.onChunk({ delta: deltaObj.content, full: fullContent });
               }
             } catch (e) {}
           }
@@ -1716,7 +1820,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         { role: 'user', content: userMsg }
       ];
       try {
-        const resp = await callAPI(messages, { maxTokens: 2048, temperature: 0.7 });
+        const resp = await callAPI(messages, { maxTokens: state.apiMaxTokens, temperature: 0.7 });
         return parseOptions(resp);
       } catch (e) {
         debugLog('选项生成失败: ' + e.message);
@@ -1751,11 +1855,23 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         const prefsText = buildPreferenceText();
         const outlineUserMsg = buildOutlineUserMessage();
         const outlineMessages = [{ role: 'system', content: outlineSys }, { role: 'user', content: outlineUserMsg }];
-        const outline = await callAPI(outlineMessages, { maxTokens: 120000, temperature: 0.7 });
+        const outline = await callAPI(outlineMessages, { maxTokens: state.apiMaxTokens, temperature: 0.5 });
         const jsonMatch = outline.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-          try { state.outline = JSON.parse(jsonMatch[0]); state.currentBeatIndex = 0; } catch(e) { state.outline = outline; }
-        } else { state.outline = outline; }
+          try {
+            const parsed = JSON.parse(jsonMatch[0]);
+            state.outline = parsed; state.currentBeatIndex = 0;
+          } catch(e) {
+            toast('大纲生成不完整，请重试或增大字数偏好');
+            debugLog('大纲解析失败: ' + e.message);
+            hideLoading();
+            return;
+          }
+        } else {
+          toast('大纲格式错误，请重试');
+          hideLoading();
+          return;
+        }
         saveState();
         updateLoading('生成初始场景...', 30);
         const narrativeSys = buildNarrativeSystemMessage();
@@ -1767,6 +1883,9 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         if (cardBlock) storyMessages.push({ role: 'system', content: cardBlock });
         const wbBlock = buildWorldInjectionBlock();
         if (wbBlock) storyMessages.push({ role: 'system', content: wbBlock });
+        if (state.summaryBlocks.length) {
+          storyMessages.push({ role: 'system', content: '早期剧情摘要:\n' + state.summaryBlocks.join('\n---\n') });
+        }
         storyMessages.push({ role: 'user', content: '请根据角色卡、大纲和偏好，写出故事的开头。直接叙述。' });
         hideLoading();
         const storyEl = document.getElementById('storyMessages');
@@ -1777,7 +1896,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
         const contentEl = streamMsgEl.querySelector('.msg-content');
         const story = await callAPI(storyMessages, {
-          maxTokens: 250000, temperature: 0.9, enableTools: false,
+          maxTokens: state.apiMaxTokens, temperature: 0.9, enableTools: true,
           onChunk: ({ full }) => {
             contentEl.textContent = full;
             document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
@@ -1836,16 +1955,13 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         const narrativeSys = buildNarrativeSystemMessage();
         const chatMessages = state.history.filter(m => m.role !== 'system');
         const fullMessages = [{ role: 'system', content: narrativeSys }];
+        const cardBlock = buildCardInjectionBlock(true);
+        if (cardBlock) fullMessages.push({ role: 'system', content: cardBlock });
+        if (state.outline) fullMessages.push({ role: 'system', content: buildOutlineContext() });
+        const wbBlock = buildWorldInjectionBlock();
+        if (wbBlock) fullMessages.push({ role: 'system', content: wbBlock });
         if (state.summaryBlocks.length) {
           fullMessages.push({ role: 'system', content: '早期剧情摘要:\n' + state.summaryBlocks.join('\n---\n') });
-        }
-        const isEarlyGame = state.history.filter(m => m.role === 'assistant').length <= 2;
-        if (isEarlyGame) {
-          const cardBlock = buildCardInjectionBlock(true);
-          if (cardBlock) fullMessages.push({ role: 'system', content: cardBlock });
-          if (state.outline) fullMessages.push({ role: 'system', content: buildOutlineContext() });
-          const wbBlock = buildWorldInjectionBlock();
-          if (wbBlock) fullMessages.push({ role: 'system', content: wbBlock });
         }
         fullMessages.push(...chatMessages);
         hideLoading();
@@ -1856,7 +1972,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
         const contentEl = streamMsgEl.querySelector('.msg-content');
         const story = await callAPI(fullMessages, {
-          maxTokens: 250000, temperature: 0.9, enableTools: !isEarlyGame,
+          maxTokens: state.apiMaxTokens, temperature: 0.9, enableTools: true,
           onChunk: ({ full }) => { contentEl.textContent = full; document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight; }
         });
         state.history.push({ role: 'assistant', content: story });
@@ -1892,16 +2008,13 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         const narrativeSys = buildNarrativeSystemMessage();
         const chat = state.history.filter(m => m.role !== 'system');
         const fullMessages = [{ role: 'system', content: narrativeSys }];
+        const cardBlock = buildCardInjectionBlock(true);
+        if (cardBlock) fullMessages.push({ role: 'system', content: cardBlock });
+        if (state.outline) fullMessages.push({ role: 'system', content: buildOutlineContext() });
+        const wbBlock = buildWorldInjectionBlock();
+        if (wbBlock) fullMessages.push({ role: 'system', content: wbBlock });
         if (state.summaryBlocks.length) {
           fullMessages.push({ role: 'system', content: '早期摘要:\n' + state.summaryBlocks.join('\n---\n') });
-        }
-        const isEarlyGame = state.history.filter(m => m.role === 'assistant').length <= 2;
-        if (isEarlyGame) {
-          const cardBlock = buildCardInjectionBlock(true);
-          if (cardBlock) fullMessages.push({ role: 'system', content: cardBlock });
-          if (state.outline) fullMessages.push({ role: 'system', content: buildOutlineContext() });
-          const wbBlock = buildWorldInjectionBlock();
-          if (wbBlock) fullMessages.push({ role: 'system', content: wbBlock });
         }
         fullMessages.push(...chat);
         hideLoading();
@@ -1912,7 +2025,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
         const contentEl = streamMsgEl.querySelector('.msg-content');
         const story = await callAPI(fullMessages, {
-          maxTokens: 250000, temperature: 0.9, enableTools: !isEarlyGame,
+          maxTokens: state.apiMaxTokens, temperature: 0.9, enableTools: true,
           onChunk: ({ full }) => { contentEl.textContent = full; document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight; }
         });
         state.history.push({ role: 'assistant', content: story });
@@ -1936,23 +2049,31 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
 
 
     async function checkAndSliceHistory() {
-      if (state.cumulativeTokens < 500000) return;
+      const apiMax = state.apiMaxTokens || 384000;
+      if (state.cumulativeTokens < apiMax) return;
       const chatMessages = state.history.filter(m => m.role !== 'system');
       if (!chatMessages.length) return;
+      const KEEP_EXACT = 6;
+      if (chatMessages.length <= KEEP_EXACT + 2) return;
       debugLog(`累计Token达${(state.cumulativeTokens/1000).toFixed(0)}K，触发压缩历史...`);
-      const sliceIndex = Math.floor(chatMessages.length * 0.4);
-      if (sliceIndex < 1) return;
-      const toSummarize = chatMessages.slice(0, sliceIndex);
-      const remaining = chatMessages.slice(sliceIndex);
+      const exactMessages = chatMessages.slice(-KEEP_EXACT);
+      const toSummarize = chatMessages.slice(0, -KEEP_EXACT);
+      if (!toSummarize.length) return;
       const summarySys = buildSummarySystemMessage();
-      const summaryReq = { role: 'user', content: '请把以下色情故事对话历史压缩为简洁摘要，保留关键情节、角色位置和身体状态。摘要长度不超过1000字。只输出摘要。\n' + toSummarize.map(m => `[${m.role}]: ${m.content}`).join('\n') };
-      const summary = await callAPI([{ role: 'system', content: summarySys }, summaryReq], { maxTokens: 2000, temperature: 0.5, trackUsage: false });
-      state.summaryBlocks.push(`摘要 (早期剧情): ${summary}`);
-      state.history = [...remaining];
-      state.cumulativeTokens = Math.floor(state.cumulativeTokens * 0.3);
+      const feedText = toSummarize.map(m => `[${m.role}]: ${m.content}`).join('\n');
+      const summaryReq = { role: 'user', content: '=== 待压缩历史 ===\n' + feedText + '\n\n=== 指令 ===\n按系统消息中的层级压缩。最近2轮保留原文，其余逐层压缩。' };
+      const summary = await callAPI(
+        [{ role: 'system', content: summarySys }, summaryReq],
+        { maxTokens: state.apiMaxTokens, temperature: 0.3, trackUsage: false }
+      );
+      const label = state.summaryBlocks.length === 0 ? '早期剧情摘要' : `第${state.summaryBlocks.length + 1}次压缩`;
+      state.summaryBlocks.push(`${label}:\n${summary}`);
+      const systemMessages = state.history.filter(m => m.role === 'system');
+      state.history = [...systemMessages, ...exactMessages];
+      state.cumulativeTokens = Math.floor(state.cumulativeTokens * 0.25);
       updateCumulativeDisplay();
       saveState();
-      debugLog(`压缩完成。保留${remaining.length}条消息，累计token重置为${(state.cumulativeTokens/1000).toFixed(0)}K`);
+      debugLog(`压缩完成。保留最近${exactMessages.length}条原文 + ${systemMessages.length}条系统消息，累计token重置为${(state.cumulativeTokens/1000).toFixed(0)}K`);
     }
 
 
@@ -2496,7 +2617,7 @@ document.getElementById('customInput').addEventListener('keydown', (e) => {  // 
         try {
           const outlineSys = buildOutlineSystemMessage();
           const outlineUserMsg = buildOutlineUserMessage();
-          const outline = await callAPI([{role:'system',content:outlineSys},{role:'user',content:outlineUserMsg}],{maxTokens:120000});
+          const outline = await callAPI([{role:'system',content:outlineSys},{role:'user',content:outlineUserMsg}],{maxTokens:state.apiMaxTokens});
           const jsonMatch = outline.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             try { state.outline = JSON.parse(jsonMatch[0]); state.currentBeatIndex = 0; } catch(e) { state.outline = outline; }
