@@ -908,99 +908,194 @@
     }
 
     function buildOutlineSystemMessage() {
-      // 提取叙事模块的 word_budget 用于引导大纲的字数分配
       const pacing = state.narrativeModule?.erotic_pacing || {};
-      let budgetRef = '';
-      if (pacing.foreplay_phase?.word_budget_ratio) {
-        budgetRef = `\n### 叙事模块字数预算（大纲须遵循）\n`;
-        budgetRef += `前戏期(foreplay): ${pacing.foreplay_phase.word_budget_ratio}\n`;
-        budgetRef += `插入前期(insertion_early): ${pacing.insertion_early?.word_budget_ratio || '25%'}\n`;
-        budgetRef += `快感积累(buildup): ${pacing.buildup_phase?.word_budget_ratio || '25%'}\n`;
-        budgetRef += `高潮(climax): ${pacing.climax_phase?.word_budget_ratio || '15%'}\n`;
-        budgetRef += `余韵(afterglow): ${pacing.afterglow_phase?.word_budget_ratio || '5%'}\n`;
-        budgetRef += `→ 各phase累计estimated_words按比例分配。偏差≤±5%。超差→大纲无效。\n`;
+
+      // 预算——始终注入
+      const fp = pacing.foreplay_phase?.word_budget_ratio || '30%';
+      const ie = pacing.insertion_early?.word_budget_ratio || '25%';
+      const bu = pacing.buildup_phase?.word_budget_ratio || '25%';
+      const cl = pacing.climax_phase?.word_budget_ratio || '15%';
+      const af = pacing.afterglow_phase?.word_budget_ratio || '5%';
+      const budgetRef =
+        `### 预算比例\n` +
+        `foreplay:${fp} | insertion_early:${ie} | buildup:${bu} | climax:${cl} | afterglow:${af}\n` +
+        `各phase的estimated_words之和与配额偏差≤±5%。超差→无效。\n`;
+
+      // 风格——始终注入
+      let styleRef = '';
+      const fps = pacing.foreplay_phase?.style;
+      if (fps) {
+        styleRef =
+          `### 各phase风格原文（phase_writing_rule须从此推导）\n` +
+          `【foreplay】${fps}\n` +
+          `【insertion_early】${pacing.insertion_early?.style || ''}\n` +
+          `【buildup】${pacing.buildup_phase?.style || ''}\n` +
+          `【climax】${pacing.climax_phase?.style || ''}\n` +
+          `【afterglow】${pacing.afterglow_phase?.style || ''}\n` +
+          `→ 从原文提取四维度填入phase_writing_rule。模块中的禁令不得放宽。\n`;
       }
 
       return BASE_SYSTEM_PROMPT + `
 
-=== 大纲生成命令 ===
+=== 输出格式 ===
 
-禁输出JSON之外内容。只输出：
+只输出JSON。禁其他文字。
 
 {
-  "title": "故事标题",
+  "title": "...",
   "total_estimated_words": 数字,
-  "active_characters": ["角色名"],
-  "active_world_books": ["世界书名"],
-  "beats": [
-    {
-      "id": 1,
-      "name": "节拍名称",
-      "estimated_words": 数字,
-      "location_ref": "世界书条目name",
-      "time": "场景时间",
-      "tension_level": 1-10,
-      "erotic_phase": "foreplay_phase / insertion_early / buildup_phase / climax_phase / afterglow_phase",
-      "characters_in_scene": ["角色名"],
-      "key_actions": ["具体动作句"],
-      "sexual_milestone": "无/接吻/抚摸/手指进入/口交/插入/内射/多次高潮",
-      "required_card_fields": ["角色卡字段路径"],
-      "required_world_entries": ["世界书条目name"],
-      "transition_to_next": "具体过渡画面",
-      "phase_writing_rule": "此节拍的写作规则。从前戏到余韵依次参照叙事模块的对应phase。格式：'句子用[长句/中句/短句/极短句]，感官以[触觉/听觉/...]为主，心理活动[有/无/≤10%]，对话[完整/短促/禁止]'"
-    }
-  ],
-  "global_rules": ["以'必须'或'禁止'开头的跨beat规则"]
-}` + budgetRef + `
+  "active_characters": ["..."],
+  "active_world_books": ["..."],
+  "beats": [{
+    "id": 1,
+    "name": "...",
+    "estimated_words": 数字,
+    "location_ref": "...",
+    "time": "...",
+    "tension_level": 1-10,
+    "erotic_phase": "foreplay_phase|insertion_early|buildup_phase|climax_phase|afterglow_phase",
+    "characters_in_scene": ["..."],
+    "key_actions": ["动作句 ≤30字"],
+    "sexual_milestone": "无|接吻|抚摸|手指进入|口交|插入|高潮(角色第N次)|射精(角色第N次)|同时高潮(角色A第N次/角色B第M次)|内射",
+    "required_card_fields": ["角色.字段.子字段"],
+    "required_world_entries": ["..."],
+    "transition_to_next": "具体画面",
+    "phase_writing_rule": "句子用[...]，感官以[...]为主，心理活动[...]，对话[...]"
+  }],
+  "global_rules": ["必须/禁止 ..."]
+}
 
-=== 节拍数量【违规则大纲无效】===
-1. total_estimated_words ≥ 用户长度要求。无指定→ ≥ 角色数×5000(min 10000)。
-2. beats = max(ceil(total_estimated_words/3000), 5)。每beat 1000-4000字。
-3. 5个phase各≥1 beat: foreplay_phase, insertion_early, buildup_phase, climax_phase, afterglow_phase。
-4. 角色≥3: foreplay_phase≥2 & buildup_phase≥2。
-5. 同phase可连排。beat总数≥下限。不足→大纲无效。
+${budgetRef}
+${styleRef}
 
-=== 节奏偏好【⚠不匹配→大纲无效】===
-6. 按用户所选节奏模式分配 phase 的 beat 数和 tension 递进。逐条对照，不匹配→大纲无效。
+══════════════ 构造前强制计算 ══════════════
 
-   【慢玩】
-   前戏≥3beat，高潮≤2beat。tension每beat升≤1级，每beat动作≤2条。体位切换间隔≥3beat。
-   允许插入纯调情/纯对话beat（不计入erotic_phase计数）。
-   禁止从insertion_early直接开始 | 禁止高潮连排 | 禁止单beat事件密度≥3。
+以下六项必须算完再写第一个beat。
 
-   【均衡】
-   前戏1-2beat，高潮2-3beat。tension每beat升1-2级，每beat动作2-3条。
-   禁止foreplay_phase=0 | 禁止climax_phase≥4 | 禁止tension单beat跳≥3级。
+A. 时长级别
+   total_estimated_words 落入哪个区间:
+   短篇 5000~15000 | 中篇 15000~30000 | 长篇 30000~60000 | 史诗 60000~120000
+   与用户长度偏好冲突→时长优先。调整total_estimated_words入区间。
 
-   【激烈】
-   前戏≤1beat(可为0)，高潮≥3beat。tension飙升——首beat可达7，每beat升2-3级。
-   每beat动作≥3条。体位可每beat切换。同一beat内可标注多次高潮。
-   禁止纯心理活动段落 | 禁止纯对话beat | 禁止长句(单句>20字占比>30%)。
+B. beat总数下限
+   minBeats = max(ceil(total_estimated_words / 3000), 5)
+   每beat 1000~4000字。
 
-=== 大纲时长【⚠任一参数出界→大纲无效】===
-7. beats/字数/高潮次数/体位种类必须落在所选时长级别的对应区间内：
+C. 时长硬上限（任一超标→无效）
+   · 短篇: beats 5~8  | 高潮总次数 1~2 | 体位种类 ≤2
+   · 中篇: beats 8~15 | 高潮总次数 2~3 | 体位种类 3~5
+   · 长篇: beats 15~25| 高潮总次数 3~5 | 体位种类 5~8
+   · 史诗: beats 25~40| 高潮总次数 ≥5  | 体位种类 ≥8
 
-   短篇: beats=5~8   | 高潮=1~2  | 体位≤2  | 字数=5000~15000
-   中篇: beats=8~15  | 高潮=2~3  | 体位3~5 | 字数=15000~30000
-   长篇: beats=15~25 | 高潮=3~5  | 体位5~8 | 字数=30000~60000
-   史诗: beats=25~40 | 高潮≥5    | 体位≥8  | 字数=60000~120000
+   高潮总次数 = 男性射精次数 + 女性潮吹/绝顶次数。
+   同beat内两人同时高潮→各计1次，累加。
+   此数必须 ≤ 该级别上限。
 
-8. 大纲时长与长度偏好冲突时→大纲时长优先。total_estimated_words调至对应区间后重算beats。
-9. sexual_milestone精确反映总高潮次数。史诗级≥2次射精，标注"第1次射精""第2次射精"。
+D. 各phase精确配额
+   foreplay 配额      = total_estimated_words × foreplay%
+   insertion_early 配额 = total_estimated_words × insertion_early%
+   buildup 配额       = total_estimated_words × buildup%
+   climax 配额        = total_estimated_words × climax%
+   afterglow 配额     = total_estimated_words × afterglow%
+   该phase内所有beat的estimated_words之和与配额偏差 ≤ ±5%。
 
+E. 节奏模式参数（根据用户选择取一组，全程锁定）
+   慢玩: 起步1~3 | 步长∈{0,+1} | 到10后保持不升 | afterglow首beat→3~5 | 高潮连排禁止
+   均衡: 起步3~5 | 步长∈{+1,+2} | 到10后≤2beat必须进afterglow | afterglow首beat→3~5
+   激烈: 起步可达7 | 步长∈{+2,+3} | 到10后可持续 | afterglow首beat骤降3~5
 
-=== 内容规则 ===
-11. 每beat的estimated_words按budgetRef比例分配。各phase累计偏差≤±5%。超差→大纲无效。
-12. key_actions每条≤30字，只写主干动作。禁描写/心理/环境。
-13. sexual_milestone线性推进，禁回退。
-14. required_card_fields用点号路径（如"角色名.orgasm_pattern.during_orgasm"），禁简写。
-15. transition_to_next写具体画面。禁抽象描述。
-16. global_rules每条以"必须"或"禁止"开头，至少含：硬限禁令 | 高潮规则 | 体裁禁令。
-17. phase_writing_rule每beat必填，从叙事模块对应phase推导。不同phase的规则必须有差异，禁相同。
-18. active_characters≥3时，global_rules额外含三行：
-    必须: key_actions拆分到具体角色（如"[角色A]从后面插入"而非"插入她"）
+F. 体位种类计数规则
+   去重后的性交体位名称数。同一体位多次出现只计1种。
+   仅在插入及之后的phase计数。
+
+══════════════ 一、节拍数量 ══════════════
+
+1. total_estimated_words ≥ 用户长度要求。无指定→≥角色数×5000(min 10000)。
+2. beat总数 ≥ B步下限。
+3. 每个phase至少1beat。缺phase→无效。
+4. 角色≥3: foreplay≥2beat 且 buildup≥2beat。
+5. 同phase可连排。
+
+══════════════ 二、节奏模式 ══════════════
+
+【慢玩】
+· foreplay ≥3beat  climax ≤2beat
+· tension: 首beat∈[1,3]。每步差∈{0,+1}。到10后保持但不再升。
+  afterglow首beat∈[3,5]。afterglow内tension只降不升。
+· key_actions ≤2条/beat
+· 体位切换间隔≥3beat
+· 允许: 纯调情/纯对话beat（不计入erotic_phase计数，不参与预算核算）
+· 禁止: 从insertion_early起手 | climax相邻 | 单beat事件密度≥3
+
+【均衡】
+· foreplay 1~2beat  climax 2~3beat
+· tension: 首beat∈[3,5]。每步差∈{+1,+2}。到10后≤2beat必须进afterglow。
+  afterglow首beat∈[3,5]。afterglow内tension只降不升。
+· key_actions 2~3条/beat
+· 禁止: foreplay=0 | climax≥4beat | 单步tension跳≥3级
+
+【激烈】
+· foreplay ≤1beat(可为0)  climax ≥3beat
+· tension: 首beat∈[1,7]。每步差∈{+2,+3}。到10后可持续。
+  afterglow首beat∈[3,5]。afterglow内tension只降不升。
+· key_actions ≥3条/beat
+· 体位可每beat切换
+· 禁止: 纯心理段 | 纯对话beat | 长句(>20字)占比>30%
+
+══════════════ 三、时长校验 ══════════════
+
+6. beat总数、高潮总次数、体位种类数→全部落入C步区间。
+7. sexual_milestone精确反映总高潮次数。史诗级≥2次射精须标"第1次射精""第2次射精"。
+
+══════════════ 四、内容规则 ══════════════
+
+8. 按D步配额分配每beat字数。生成后逐phase求和验偏差。
+
+9. key_actions每条≤30字，只写主干动作。禁描写/心理/环境。
+
+10. sexual_milestone线性推进，禁回退。
+    正确: 接吻→抚摸→手指进入→口交→插入→高潮(第1次)→高潮(第2次)
+    错误: 插入后回退到抚摸。
+
+11. required_card_fields用点号路径。禁简写。
+
+12. transition_to_next写具体画面。禁"气氛更加热烈"类抽象句。
+
+13. global_rules每条以"必须"或"禁止"开头。至少含:
+    硬限禁令 | 高潮规则 | 体裁禁令
+    缺一类→无效。
+
+14. phase_writing_rule每beat必填。从上方styleRef中该phase的原文提取四维度:
+    句长策略 → "句子用[...]"
+    主导感官 → "感官以[...]为主"
+    心理活动 → "心理活动[无|≤10%]"（模块禁心理→必须写"无"，不得放宽为"≤10%"）
+    对话策略 → "对话[完整|短促|禁止|仅破碎单音节+♡]"（模块禁对话→必须写"禁止"，不得放宽为"短促"）
+    格式固定为一句: "句子用[X]，感官以[X]为主，心理活动[X]，对话[X]"
+    不同phase之间规则必须有差异。
+
+15. active_characters≥3时，global_rules额外加三行:
+    必须: key_actions拆分到具体角色
     必须: 高潮beat标注各角色高潮顺序
-    禁止: 任何beat只涉及部分角色——每beat须覆盖全部active_characters
+    禁止: 任何beat只涉及部分角色
+
+══════════════ 五、输出前逐项自检 ══════════════
+
+全部通过才输出JSON。
+
+□ beat总数 ≥ B步下限?  ceil(total/3000)=__ 实际=__
+□ 5phase各≥1?  fore=__ ie=__ bu=__ cl=__ af=__
+□ 高潮总次数≤C步上限?  男射__+女潮__=总__  上限__
+□ 体位种类在C步区间?  种类__  区间__
+□ 预算偏差≤±5%?
+  fore:配额__ 实__ 偏__% | ie:配额__ 实__ 偏__% | bu:配额__ 实__ 偏__%
+  cl:配额__ 实__ 偏__% | af:配额__ 实__ 偏__%
+□ tension序列合规?
+  序列:[列出所有值]  步差:[列出相邻差]  模式允许:{__}
+  afterglow首beat在范围内?  持续/天花板检查?
+□ 每条phase_writing_rule未放宽模块禁令?
+□ global_rules含硬限+高潮+体裁三类?
+□ milestone线性无回退?
+□ 全部key_actions≤30字?
 
 禁输出JSON之外内容。`;
     }
