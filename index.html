@@ -1923,6 +1923,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
     }
 
     function cancelCurrentRequest() {
+      stopFakeProgress();  // ✅ 新增
       if (state.abortController) {
         state.abortController.abort();
         debugLog('手动取消请求');
@@ -1930,13 +1931,39 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
     }
 
     /* ================== 进度与UI ================== */
+    let _fakeProgressTimer = null;  // ✅ 必须声明
+
+    function startFakeProgress(fromPercent) {  // ✅ 新增
+      stopFakeProgress();
+      let p = fromPercent || 0;
+      _fakeProgressTimer = setInterval(() => {
+        if (p < 30)       p += 2;
+        else if (p < 60)  p += 0.8;
+        else if (p < 85)  p += 0.3;
+        else              p += 0.1;
+        if (p >= 92) p = 92;
+        document.getElementById('progressBar').style.width = p + '%';
+      }, 250);
+    }
+
+    function stopFakeProgress() {  // ✅ 新增
+      if (_fakeProgressTimer) {
+        clearInterval(_fakeProgressTimer);
+        _fakeProgressTimer = null;
+      }
+    }
+
     function updateLoading(phase, progress) {
       document.getElementById('loadingHint').textContent = phase;
       document.getElementById('progressBar').style.width = Math.min(100, progress) + '%';
     }
 
     function showLoading() { document.getElementById('loadingModal').classList.remove('hidden'); }
-    function hideLoading() { document.getElementById('loadingModal').classList.add('hidden'); }
+
+    function hideLoading() {  // ✅ 修改：自动清理假进度
+      stopFakeProgress();
+      document.getElementById('loadingModal').classList.add('hidden');
+    }
 
     function updateUI() { renderStory(); renderOptions(); }
 
@@ -2044,6 +2071,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
       const activeCards = getActiveCards();
       if (!activeCards.length) { toast('请先导入角色卡'); return; }
       showLoading(); updateLoading('正在生成大纲...', 5);
+      startFakeProgress(5);
       try {
         const outlineSys = buildOutlineSystemMessage();
         const cardsInfo = activeCards.map(c => c.content || JSON.stringify(c)).join('\n---\n');
@@ -2051,18 +2079,22 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         const outlineUserMsg = buildOutlineUserMessage();
         const outlineMessages = [{ role: 'system', content: outlineSys }, { role: 'user', content: outlineUserMsg }];
         const outline = await callAPI(outlineMessages, { maxTokens: state.apiMaxTokens, temperature: 0.5 });
+        stopFakeProgress();
+        updateLoading('正在生成大纲...', 100);
         const jsonMatch = outline.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
           try {
             const parsed = JSON.parse(jsonMatch[0]);
             state.outline = parsed; state.currentBeatIndex = 0;
           } catch(e) {
+            stopFakeProgress();
             toast('大纲生成不完整，请重试或增大字数偏好');
             debugLog('大纲解析失败: ' + e.message);
             hideLoading();
             return;
           }
         } else {
+          stopFakeProgress();
           toast('大纲格式错误，请重试');
           hideLoading();
           return;
@@ -2143,7 +2175,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
       if (!state.gameStarted) { toast('游戏尚未开始'); return; }
       if (isProcessing) { toast('请等待当前生成完成'); return; }
       isProcessing = true;
-      state.history.push({ role: 'user', content: '我选择: ' + optText });
+      state.history.push({ role: 'user', content: optText });  // ✅ 去掉冗余前缀
       saveState(); updateUI();
       const storyEl = document.getElementById('storyMessages');
       let streamMsgEl = null;
@@ -2201,6 +2233,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
       if (!state.gameStarted || !text.trim()) return;
       if (isProcessing) { toast('请等待当前生成完成'); return; }
       isProcessing = true;
+      document.getElementById('customInput').value = '';  // ✅ 立即清空
       state.history.push({ role: 'user', content: text });
       saveState(); updateUI();
       const storyEl = document.getElementById('storyMessages');
@@ -2827,10 +2860,14 @@ document.getElementById('customInput').addEventListener('keydown', (e) => {  // 
         const activeCards = getActiveCards();
         if (!activeCards.length) { toast('没有激活的角色卡'); return; }
         showLoading();
+        updateLoading('正在生成大纲...', 5);
+        startFakeProgress(5);
         try {
           const outlineSys = buildOutlineSystemMessage();
           const outlineUserMsg = buildOutlineUserMessage();
           const outline = await callAPI([{role:'system',content:outlineSys},{role:'user',content:outlineUserMsg}],{maxTokens:state.apiMaxTokens});
+          stopFakeProgress();
+          updateLoading('正在生成大纲...', 100);
           const jsonMatch = outline.match(/\{[\s\S]*\}/);
           if (jsonMatch) {
             try { state.outline = JSON.parse(jsonMatch[0]); state.currentBeatIndex = 0; } catch(e) { state.outline = outline; }
