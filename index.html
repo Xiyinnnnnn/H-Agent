@@ -740,7 +740,7 @@
           entry.appendChild(timeSpan);
           entry.appendChild(document.createTextNode(String(msg)));
           container.appendChild(entry);
-          container.scrollTop = container.scrollHeight;
+          smartScrollToBottom(container);
         }
       }
       console.log(`[${t}]`, msg);
@@ -759,7 +759,7 @@
         entry.appendChild(document.createTextNode(log.msg));
         container.appendChild(entry);
       });
-      container.scrollTop = container.scrollHeight;
+      smartScrollToBottom(container);
     }
 
     function toast(msg, duration=2000) {
@@ -1940,6 +1940,32 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
 
     function updateUI() { renderStory(); renderOptions(); }
 
+    function smartScrollToBottom(container, threshold = 50) {
+      const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight <= threshold;
+      if (isNearBottom) {
+        container.scrollTop = container.scrollHeight;
+      }
+    }
+
+    let _streamRafPending = false;
+    let _streamPendingEl = null;
+    let _streamPendingFull = '';
+    function _flushStreamDom() {
+      if (_streamPendingEl) {
+        _streamPendingEl.textContent = _streamPendingFull;
+        smartScrollToBottom(document.getElementById('mainStoryArea'));
+      }
+      _streamRafPending = false;
+    }
+    function rAFUpdateContent(contentEl, full) {
+      _streamPendingEl = contentEl;
+      _streamPendingFull = full;
+      if (!_streamRafPending) {
+        _streamRafPending = true;
+        requestAnimationFrame(_flushStreamDom);
+      }
+    }
+
     function renderStory() {
       const container = document.getElementById('storyMessages');
       const empty = document.getElementById('storyEmptyHint');
@@ -1952,7 +1978,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         html += `<div class="story-msg"><div class="msg-role">${roleLabel}</div><div class="msg-content">${escapeHtml(msg.content)}</div></div>`;
       });
       container.innerHTML = html;
-      document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
+      smartScrollToBottom(document.getElementById('mainStoryArea'));
     }
 
     function renderOptions() {
@@ -2062,7 +2088,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         streamMsgEl.className = 'story-msg';
         streamMsgEl.innerHTML = '<div class="msg-role">AI</div><div class="msg-content"></div>';
         storyEl.appendChild(streamMsgEl);
-        document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
+        smartScrollToBottom(document.getElementById('mainStoryArea'));
         const contentEl = streamMsgEl.querySelector('.msg-content');
         // ★ 先占位写入 history，流式过程中实时更新
         const assistantMsg = { role: 'assistant', content: '' };
@@ -2070,9 +2096,8 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         const story = await callAPI(storyMessages, {
           maxTokens: state.apiMaxTokens, temperature: 0.9, enableTools: true,
           onChunk: ({ full }) => {
-            contentEl.textContent = full;
-            assistantMsg.content = full;  // ★ 实时同步到 history
-            document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
+            assistantMsg.content = full;  // ★ 实时同步到 history（内存操作，不同步会丢数据）
+            rAFUpdateContent(contentEl, full);
           }
         });
 
@@ -2143,7 +2168,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         streamMsgEl.className = 'story-msg';
         streamMsgEl.innerHTML = '<div class="msg-role">AI</div><div class="msg-content"></div>';
         storyEl.appendChild(streamMsgEl);
-        document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
+        smartScrollToBottom(document.getElementById('mainStoryArea'));
         const contentEl = streamMsgEl.querySelector('.msg-content');
         // ★ 先占位写入 history，流式过程中实时更新
         const assistantMsg = { role: 'assistant', content: '' };
@@ -2151,9 +2176,8 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         const story = await callAPI(fullMessages, {
           maxTokens: state.apiMaxTokens, temperature: 0.9, enableTools: true,
           onChunk: ({ full }) => {
-            contentEl.textContent = full;
-            assistantMsg.content = full;  // ★ 实时同步到 history
-            document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
+            assistantMsg.content = full;
+            rAFUpdateContent(contentEl, full);
           }
         });
         saveState();
@@ -2202,7 +2226,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         streamMsgEl.className = 'story-msg';
         streamMsgEl.innerHTML = '<div class="msg-role">AI</div><div class="msg-content"></div>';
         storyEl.appendChild(streamMsgEl);
-        document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
+        smartScrollToBottom(document.getElementById('mainStoryArea'));
         const contentEl = streamMsgEl.querySelector('.msg-content');
         // ★ 先占位写入 history，流式过程中实时更新
         const assistantMsg = { role: 'assistant', content: '' };
@@ -2210,9 +2234,8 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         const story = await callAPI(fullMessages, {
           maxTokens: state.apiMaxTokens, temperature: 0.9, enableTools: true,
           onChunk: ({ full }) => {
-            contentEl.textContent = full;
-            assistantMsg.content = full;  // ★ 实时同步到 history
-            document.getElementById('mainStoryArea').scrollTop = document.getElementById('mainStoryArea').scrollHeight;
+            assistantMsg.content = full;
+            rAFUpdateContent(contentEl, full);
           }
         });
         saveState();
