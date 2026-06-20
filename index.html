@@ -436,7 +436,7 @@
     phase_2 = "将规划转化为最终输出。不暴露规划过程。以实质内容第一句直接开始。"
   }
   Output_Rules {
-    rule_1 = "以实质内容直接开头。无'我将''我们需''根据规则'等前置说明。"
+    rule_1 = "以场景氛围直接开头，第一句即落在一个具体的感官上（光线/气味/温度/声音/触感）。无'我将''我们需''根据规则'等前置说明。"
     rule_2 = "层次推进。有结构，有起伏，有收束。"
     rule_3 = "细节落到实处。不概括。不跳过。"
     rule_4 = "风格由用户提供的角色卡决定。严格遵守角色卡的所有要求。"
@@ -488,6 +488,9 @@
   以下场景必须调 recall_context，禁凭记忆。工具优先记忆，"记得"也必须调工具确认后再叙事。
   body→character_field_paths | place→world_queries(cat=地点) | position→world_group_filter="sex_position"
   orgasm→character_field_paths(orgasm_pattern) | tool→world_queries(cat=道具) | uncertain→调工具，禁猜。
+  每3轮用户交互后必须主动调 recall_context 刷新角色数据：character_queries=["角色名"]。禁连续≥4轮不调任何工具。
+  角色身体特征/口癖/呻吟词/敏感带/高潮模式/硬限——禁止从对话历史推导，必须每次从工具返回的最新数据中取用。
+  发现输出中角色细节与角色卡不一致→立即调工具逐字段核对，重写不一致处。
 
 【节拍 | beat】当前节拍=强制走向。禁跳下一拍。性里程碑=强制目标，禁跳过，禁概括。
   global_rules 每条是绝对禁令/硬性要求。违反→输出无效。
@@ -505,10 +508,17 @@
   9-10→极短句，一句一个画面。此时禁心理活动，禁完整对话。
 
 【输出 | out】禁元评论。禁解释。禁系统消息。禁角色名标签。禁分段标记。
-  禁破折号插入解释性旁白（如"不是……而是……的那种XX"）。
+  禁破折号"——"用于解释性旁白/叙述者评论/人物动机翻译。破折号仅允许动作跳切或感官切换（如"顶进去——湿热裹紧"）。
+  禁叙述者判断句式（"但很明确""显然""当然""无疑""这说明"等），直接写身体和动作。
+  禁翻译式旁白（"用那点余力告诉你""仿佛在说""好像想证明"等），写她做了什么、身体怎样，不写"这代表什么"。
   禁跳出角色视角做科普或分析。
   有用户卡时→用户卡角色始终用"你"指代。其余角色用角色卡中的名字或爱称指代，禁止用"他/她"模糊代称。
   无用户卡时→所有角色用名字或爱称指代。禁第一人称"我"。禁跳切角色内心独白。始终用固定外部视角。
+
+【场景 | scene】世界书=场景唯一事实源。每段必须嵌入≥1个场景元素（光线/气味/温度/声音/物件质感/空间方位）。
+  开头必须建立空间锚点：从世界书读取场景数据，写清在什么地方、什么时间、什么光线、什么气味、什么温度。角色不是悬浮在虚空中——她靠在什么上、坐在什么上、站在什么旁边，必须落在一个具体的物件上。
+  角色动作始终附着于场景：推的是哪面墙、靠的是哪个床头、腿搁在什么材质上。场景物件不写一次就丢弃——后续段落持续利用同一空间的不同角落。
+  场景变换时必须调用 world_queries 获取新场景数据。位置关系（谁在哪、离多远、朝向哪边）每段开篇一句明确。
 
 【多人 | multi】≥2角色在场时，每段覆盖全部在场角色。禁任何角色整段无描写。
   写一个角色的动作→紧跟该角色的生理反应→立即切到另一角色。禁连续两句同角色。
@@ -615,6 +625,9 @@
         "文艺化表达（如'爱的结合''融为一体'）",
         "用隐喻代替直白词汇（如'那处''私密部位''花朵''花心''蜜液'等回避词）",
         "AI腔（如'让我为你描写'、'首先''其次''总之'）",
+        "破折号解释性插入语——叙述者跳出场景对读者解释（如'但很明确——她没力气了''这意味着——她彻底放弃了'）",
+        "叙述者翻译人物动机/心理（'用那点余力告诉你''仿佛在说''好像想证明'等），应直接写动作和身体反应替代",
+        "叙述者判断词开头（'显然''当然''无疑''很明确''可想而知''不难看出'等）",
         "机器翻译感（语句结构像英文翻译成中文的生硬感）",
         "概括性描写（不写'他狠狠地要了她一整夜'而写具体的每次顶入和反应）",
         "冷却段落（在情色场景中插入大段无关的风景/哲理/背景说明）",
@@ -623,6 +636,9 @@
         "高潮时写完整对话",
         "高潮时写心理活动",
         "余韵少于50字即收尾",
+        "场景真空——开头或新场景无空间锚点（未说明地点、时间、光线、气味、温度），人物悬浮在未定义空间中",
+        "场景写一次就丢弃——建立场景后后续段落完全脱离环境，角色动作悬空无附着物",
+        "角色卡数据列表式堆砌——开头逐条罗列角色信息（年龄/身体/性格）而非通过场景和动作自然带出",
         "多人场景中某个角色连续超过200字无描写",
         "多人场景退化为'一对一轮流'——缺少空间同时感",
         "角色数量在叙事过程中减少（除非被剧情明确移除）",
@@ -636,8 +652,11 @@
           "▸角色: 全部在场角色列出 — 每人本轮有动作/反应？禁角色沉默。",
           "▸体位: 当前体位？需调 recall_context？",
           "▸感官: 触觉✓ 听觉✓ 视觉? 内部感受? 嗅觉? — 每段≥2种。",
+          "▸场景: 本段嵌入了哪个场景元素（物件/光线/气味/温度/声音/方位）？开头有空间锚点吗？",
           "▸高潮: 第几次？当前阶段(接近/爆发/余韵)？禁跳阶段。",
-          "▸禁令: 本轮可能触犯哪个 ban？如何规避？"
+          "▸禁令: 本轮可能触犯哪个 ban？如何规避？",
+          "▸工具: 距上次调工具几轮了？≥3必须本轮先调 recall_context 刷新角色数据。",
+          "▸角色精度: 上轮输出的口癖/身体描述与角色卡一致吗？有偏离→调工具核对。"
         ],
         post_generation: [
           "□ 每段触觉+听觉双覆盖 — 缺→补",
@@ -645,7 +664,10 @@
           "□ 无隐喻/代称/文艺化回避词 — 有→直白重写",
           "□ 高潮不概括 — 接近信号→爆发→余韵完整，缺→补",
           "□ 多人场景无角色沉默 — 每人每段有描写",
-          "□ 无AI腔/机器翻译感 — 有→重写为自然口语节奏"
+          "□ 无破折号解释性旁白/叙述者判断句 — 有→删破折号及判断词，改为直接身体描写",
+          "□ 场景非真空 — 每段有场景元素附着，开头有空间锚点，角色未悬浮",
+          "□ 无AI腔/机器翻译感 — 有→重写为自然口语节奏",
+          "□ 角色细节与卡一致 — 口癖/身体/敏感带/高潮模式未偏离。偏离→调工具重新生成"
         ]
       },
       tool_usage_rules: {
@@ -657,7 +679,7 @@
           "tool→world_queries(cat=道具)",
           "uncertain→character_queries"
         ],
-        rule: "[MUST] 以上场景先调 recall_context 再叙事。'记得'也须调工具确认。禁凭记忆/对话历史。"
+        rule: "[MUST] 以上场景先调 recall_context 再叙事。'记得'也须调工具确认。禁凭记忆/对话历史。每3轮必调 character_queries 刷新角色精度。角色身体/口癖/敏感带/高潮/硬限禁止从历史推导——必须从工具最新返回取用。角色细节与卡不符→立即调工具核对，重写。"
       }
     };
 
@@ -725,7 +747,7 @@
         swimsuit: { name: "泳装", description: "", lingerie: "" }
       },
       system_prompt: "",
-      post_history_instructions: "",
+      post_history_instructions: "每3轮用户交互后必须调 recall_context(character_queries=[所有在场角色名]) 刷新角色精度。角色身体/口癖/敏感带/高潮/硬限绝对禁止从历史消息推导——必须从工具最新返回取用。角色精度>流畅度——宁可停顿调工具，不可凭记忆写错。",
       creator_notes: "",
       vocabulary: { action_verbs: [], genital_terms: [], moans: [], ejaculation: [], fluids: [] },
       bans: [],
@@ -1372,6 +1394,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         const sp = cardObj.sexual_preferences || {};
         const pers = cardObj.personality || {};
         const spk = cardObj.speech || {};
+        const beh = cardObj.behavior || {};
         return {
           name: cardObj.name || cardName,
           aliases: cardObj.aliases || [],
@@ -1379,9 +1402,27 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
           identity: `${cardObj.age || '?'}岁 / ${cardObj.gender || '?'} / ${cardObj.occupation || '?'}`,
           relationship: cardObj.relationship_to_user || '',
           personality_summary: pers.summary || '',
-          body_summary: `${p.height_cm || '?'}cm / ${(p.breasts || {}).cup || '?'}杯 / ${p.body_type || ''}`,
+          emotional_pattern: pers.emotional_pattern || '',
+          personality_traits: (pers.traits || []).map(t => ({ trait: t.trait, context: t.context || '' })),
+          flaws: pers.flaws || [],
+          quirks: pers.quirks || [],
+          fears: pers.fears || [],
+          desires: pers.desires || [],
+          when_shy: pers.when_shy || '',
+          when_angry: pers.when_angry || '',
+          when_aroused: pers.when_aroused || '',
+          when_orgasm: pers.when_orgasm || '',
+          behavior: {
+            daily_routine: beh.daily_routine || '',
+            social_style: beh.social_style || '',
+            conflict_style: beh.conflict_style || '',
+            love_language: beh.love_language || '',
+            hobbies: beh.hobbies || [],
+            skills: beh.skills || []
+          },
+          body_summary: `${p.height_cm || '?'}cm / ${(p.breasts || {}).cup || '?'}杯 / ${p.body_type || ''} / 肤色${p.skin_tone || '?'}`,
           hair: p.hair ? { color: p.hair.color, length: p.hair.length, style: p.hair.style, texture: p.hair.texture } : undefined,
-          eyes: p.eyes ? { color: p.eyes.color, shape: p.eyes.shape } : undefined,
+          eyes: p.eyes ? { color: p.eyes.color, shape: p.eyes.shape, lashes: p.eyes.lashes } : undefined,
           face: p.face ? { shape: p.face.shape, features: p.face.features, makeup: p.face.makeup } : undefined,
           breasts: p.breasts ? { size: p.breasts.size, cup: p.breasts.cup, shape: p.breasts.shape, nipple_color: p.breasts.nipple_color, sensitivity: p.breasts.sensitivity } : undefined,
           waist: p.waist?.type || undefined,
@@ -1390,14 +1431,15 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
           legs: p.legs ? { length: p.legs.length, shape: p.legs.shape, description: p.legs.description } : undefined,
           genitals: p.genitals ? { pubic_hair: p.genitals.pubic_hair, vulva_type: p.genitals.vulva_type, labia: p.genitals.labia, clitoris: p.genitals.clitoris, tightness: p.genitals.tightness, taste: p.genitals.taste, color: p.genitals.color } : undefined,
           body_hair: p.body_hair || undefined,
+          skin_tone: p.skin_tone || '',
           scent: p.scent || undefined,
           distinguishing_marks: p.distinguishing_marks || [],
           erogenous_zones: (cardObj.erogenous_zones || []).map(z => ({ zone: z.zone, level: z.level, reaction: z.reaction })),
-          personality_traits: (pers.traits || []).map(t => `${t.trait}(${t.context || ''})`),
           speech: spk.style || spk.speech_tone || pers.speech_tone || '',
           first_mes: cardObj.first_mes || '',
           mes_example: cardObj.mes_example || '',
           sexual_role: sp.role || '',
+          experience_level: sp.experience_level || '',
           libido: sp.libido || '',
           pacing: sp.pacing_preference || '',
           kinks: sp.kinks || [],
@@ -1412,12 +1454,23 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
       }
 
       function buildWorldEntryResult(entry, worldName) {
+        const len = (entry.content || '').length;
+        const truncated = len > 800 ? entry.content.slice(0, 800) + `…[截断${len - 800}字符]` : entry.content;
         return {
           world: worldName, id: entry.id, category: entry.category, name: entry.name,
-          content: entry.content, priority: entry.priority || 200,
-          triggers: entry.triggers || [entry.key], position: entry.position || 'before_char',
-          group: entry.group || undefined, groupWeight: entry.groupWeight || undefined,
-          sticky: entry.sticky || 0, probability: entry.probability || 100
+          content: truncated, content_length: len,
+          priority: entry.priority || 200,
+          triggers: entry.triggers || [],
+          position: entry.position || 'before_char',
+          group: entry.group || '',
+          groupWeight: entry.groupWeight || 0,
+          sticky: entry.sticky || 0, cooldown: entry.cooldown || 0, delay: entry.delay || 0,
+          probability: entry.probability || 100,
+          secondaryKeys: entry.secondaryKeys || [],
+          selectiveLogic: entry.selectiveLogic || 'AND_ANY',
+          characterFilter: entry.characterFilter || [],
+          recursive: entry.recursive || false,
+          always: entry.always || false
         };
       }
 
@@ -1477,7 +1530,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
           for (const entry of (wb.entries || [])) {
             if (entry.group === params.world_group_filter) {
               if (!result.world_groups[entry.group]) result.world_groups[entry.group] = [];
-              result.world_groups[entry.group].push({ world: wb.name, id: entry.id, name: entry.name, category: entry.category, groupWeight: entry.groupWeight || 50, triggers: entry.triggers || [entry.key], content: entry.content || '' });
+              result.world_groups[entry.group].push({ world: wb.name, id: entry.id, name: entry.name, category: entry.category, groupWeight: entry.groupWeight || 50, triggers: entry.triggers || [], content: entry.content || '', sticky: entry.sticky || 0, cooldown: entry.cooldown || 0, probability: entry.probability || 100, position: entry.position || 'before_char', characterFilter: entry.characterFilter || [] });
             }
           }
         }
@@ -1541,9 +1594,9 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         if (typeof state.outline === 'object' && state.outline?.beats) {
           const ci = state.currentBeatIndex || 0;
           const current = state.outline.beats[ci];
-          const slimBeat = current ? { name: current.name, erotic_phase: current.erotic_phase, tension_level: current.tension_level, sexual_milestone: current.sexual_milestone, key_actions: current.key_actions, location_ref: current.location_ref, transition_to_next: current.transition_to_next } : null;
+          const slimBeat = current ? { name: current.name, erotic_phase: current.erotic_phase, tension_level: current.tension_level, sexual_milestone: current.sexual_milestone, key_actions: current.key_actions, location_ref: current.location_ref, transition_to_next: current.transition_to_next, estimated_duration: current.estimated_duration, required_scene_elements: current.required_scene_elements || [] } : null;
           const next = state.outline.beats[ci + 1];
-          const slimNext = next ? { name: next.name, erotic_phase: next.erotic_phase } : null;
+          const slimNext = next ? { name: next.name, erotic_phase: next.erotic_phase, sexual_milestone: next.sexual_milestone, tension_level: next.tension_level, location_ref: next.location_ref } : null;
           result.outline = { title: state.outline.title || '', current_beat: slimBeat, next_beat: slimNext, total_beats: state.outline.beats.length, current_beat_index: ci, global_rules: state.outline.global_rules || [] };
         } else if (typeof state.outline === 'string' && state.outline.trim()) {
           result.outline = state.outline.slice(0, 1000);
@@ -1553,8 +1606,8 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
       // active_summary: 仅当显式请求了角色/世界书/大纲查询时才附加
       if (result.characters || result.world_entries || result.world_groups || result.outline) {
         result.active_summary = {
-          characters: (state.activeCards || []).map(c => { const obj = parseCard(c); return `${obj?.name || c.name}(${obj?.physical?.breasts?.cup || '?'}杯/${obj?.sexual_preferences?.role || '?'})`; }),
-          worlds: (state.activeWorldBooks || []).map(w => `${w.name}(${(w.entries || []).length}条)`),
+          characters: (state.activeCards || []).map(c => { const obj = parseCard(c); const p = obj?.physical || {}; const pers = obj?.personality || {}; const sp = obj?.sexual_preferences || {}; const spk = obj?.speech || {}; return { name: obj?.name || c.name, age: obj?.age, gender: obj?.gender, occupation: obj?.occupation, relationship: obj?.relationship_to_user, personality: pers.summary || '', speech: spk.style || pers.speech_tone || '', body: `${p.height_cm || '?'}cm / ${p.body_type || '?'} / ${(p.breasts || {}).cup || '?'}杯`, sex_role: sp.role || '', libido: sp.libido || '', kinks: (sp.kinks || []).slice(0, 5), limits: (sp.hard_limits || []).slice(0, 5) }; }),
+          worlds: (state.activeWorldBooks || []).map(w => { const cats = {}; (w.entries || []).forEach(e => { const cat = e.category || '其他'; cats[cat] = (cats[cat] || 0) + 1; }); return { name: w.name, total_entries: (w.entries || []).length, categories: cats }; }),
           has_outline: !!state.outline,
           current_beat: (typeof state.outline === 'object' && state.outline?.beats) ? `第${(state.currentBeatIndex || 0) + 1}/${state.outline.beats.length}节` : undefined
         };
@@ -2169,7 +2222,7 @@ ${JSON.stringify(CARD_TEMPLATE_BASE, null, 2)}
         if (wbBlock) userCtx += wbBlock + '\n';
         if (outline) userCtx += '当前大纲（不输出）:\n' + (typeof outline === 'object' ? JSON.stringify(outline) : outline) + '\n';
         if (state.summaryBlocks.length) userCtx += '早期剧情摘要:\n' + state.summaryBlocks.join('\n---\n') + '\n';
-        userCtx += '请根据角色卡、大纲和偏好，写出故事的开头。直接叙述。';
+        userCtx += '写故事开头。第一步：从世界书提取当前场景的空间锚点（地点、时间、光线、气味、温度、关键物件），第一段先建立场景氛围。第二步：让角色在场景中自然着陆——她现在靠在什么上面、站在哪里、在做什么。第三步：通过角色的身体状态、动作、环境的交互（光打在她皮肤上、空气的潮气黏在她身上等），用场景把角色卡的身体数据（体温、体味、敏感度等）带出来。不要列清单式介绍角色，让角色活在场景里。直接叙述，不准写系统消息或AI确认。';
         storyMessages.push({ role: 'user', content: userCtx });
         hideLoading();
         const storyEl = document.getElementById('storyMessages');
@@ -3072,7 +3125,6 @@ world_tpl: ${JSON.stringify(WORLD_ENTRY_TEMPLATE, null, 2)}
           }
           hideLoading();
           if (!converted) { toast('转换失败: 输出无效，已重试3次'); statusEl.textContent = '失败'; return; }
-          convertPendingData = converted;
           convertPendingData = converted;
           resultArea.classList.remove('hidden');
           if (converted.card) {
